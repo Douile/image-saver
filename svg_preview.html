@@ -1,0 +1,49 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>Dataurl Preview</title>
+<script src="svg_preview.js" async defer></script>
+<style>
+body {
+  overflow: hidden;
+}
+table {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: 100vw;
+}
+td {
+  width: 50vw;
+}
+td img {
+  width: 100%;
+}
+td > div {
+  width: 100%;
+  height: 100vh;
+  overflow-y: auto;
+}
+#input {
+  position: absolute;
+  left: -4000px;
+  top: -4000px;
+  width: 1px;
+  height: 1px;
+}
+* {
+  line-break: anywhere;
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+</style>
+</head>
+<body>
+<table>
+<tr><td><img id="image"></td><td><div class="long-text"><a id="link"></a></div></td></tr>
+</table>
+<input id="input">
+</body>
+</html>
