@@ -1,5 +1,7 @@
 {
   "manifest_version": 2,
+  "author": "Douile <25043847+Douile@users.noreply.github.com>",
+  "homepage_url": "https://github.com/Douile/image-saver",
   "name": "Image saver",
   "description": "Save any images in page directly from context menu, this includes svg elements, css background images and direct child images. Now supports creating dataurls for any image or svg as well.",
   "version": "0.6",
@@ -10,8 +12,9 @@
     "254": "/assets/logo.svg"
   },
   "background": {
-    "scripts": ["background.js"],
+    "scripts": ["lib.js", "background.js"],
     "persistent": false
   },
-  "permissions": ["menus","downloads","*://*/*"]
+  "devtools_page": "devtools.html",
+  "permissions": ["menus","downloads","devtools","*://*/*"]
 }
