@@ -9,6 +9,8 @@ if (!browser) {
 const VALID_TAGS = ['IMG','SVG'];
 const MENUS = ['image_save_button','image_dataurl_button'];
 const JS_PARSEURL = `function parseURL(url) {var u=new URL(url,window.location.href);return u.toString();};`;
+// TODO: Match multiple background images
+// TODO: allow choosing between images if multiple are found
 const JS_SAVE = function(action) {
   return `function save_image(node) {var bg=getComputedStyle(node).getPropertyValue('background-image');var tag=node.tagName.toUpperCase();if(bg.includes('url')) {var url=parseURL(bg.substr(5,bg.length-7));browser.runtime.sendMessage({'type':'${action}','target':'url','data':url})} else if (tag==='SVG') {browser.runtime.sendMessage({'type':'${action}','target':'base64','data':btoa(node.outerHTML)})} else if (tag==='IMG') {var url=parseURL(node.src);browser.runtime.sendMessage({'type':'${action}','target':'url','data':url});} else {return false;};return true;};`
 }
