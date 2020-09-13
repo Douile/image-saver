@@ -97,7 +97,6 @@ const dataURLImage = async function(message, pageURL) {
         reader.onloadend = () => {
           let url = reader.result;
           previewDataURL(url);
-          console.log(url);
         }
         reader.onerror = console.error;
         reader.readAsDataURL(blob);
