@@ -5,7 +5,7 @@
   "default_locale": "en",
   "name": "__MSG_extensionName__",
   "description": "__MSG_extensionDescription__",
-  "version": "0.6",
+  "version": "1.0.0",
   "icons": {
     "48": "/assets/logo_48.png",
     "96": "/assets/logo_96.png",
