@@ -56,7 +56,7 @@ async function updateImages() {
   Elements['.image-svg img'].src = '';
 
   if (activeElement.tagName === 'svg') {
-    const svgContent = cleanSVG(await inspectedEval('$0.outerHTML'));
+    const svgContent = (await cleanSVG(await inspectedEval('$0.outerHTML'))).text;
     Elements['.image-svg input'].value = svgContent;
     Elements['.image-svg img'].src = URL.createObjectURL(new Blob([svgContent], { type: 'image/svg+xml' }));
   }

@@ -1,29 +1,32 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <title>Dataurl Preview</title>
-<script src="svg_preview.js" async defer></script>
+<script src="/svg_preview.js" async="" defer=""></script>
 <style>
-body {
-  overflow: hidden;
-}
-table {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100vh;
-  width: 100vw;
-}
-td {
-  width: 50vw;
-}
-td img {
-  width: 100%;
-}
-td > div {
-  width: 100%;
-  height: 100vh;
+:root {
+  overflow-x: hidden;
   overflow-y: auto;
+}
+.container {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: 1fr;
+  grid-gap: 10px;
+  padding: 10px;
+  align-items: center;
+}
+.container img {
+  width: 100%;
+  background: linear-gradient(45deg, rgba(0, 0, 0, 0.0980392) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.0980392) 75%, rgba(0, 0, 0, 0.0980392) 0), linear-gradient(45deg, rgba(0, 0, 0, 0.0980392) 25%, transparent 25%, transparent 75%, rgba(0, 0, 0, 0.0980392) 75%, rgba(0, 0, 0, 0.0980392) 0), white;
+  background-repeat: repeat, repeat;
+  background-position: 0px 0, 5px 5px;
+  transform-origin: 0 0 0;
+  background-origin: padding-box, padding-box;
+  background-clip: border-box, border-box;
+  background-size: 10px 10px, 10px 10px;
 }
 #input {
   position: absolute;
@@ -35,15 +38,13 @@ td > div {
 * {
   line-break: anywhere;
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 </style>
 </head>
 <body>
-<table>
-<tr><td><img id="image"></td><td><div class="long-text"><a id="link"></a></div></td></tr>
-</table>
+<div class="container">
+  <img id="image"><a id="link"></a>
+</div>
 <input id="input">
 </body>
 </html>

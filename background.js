@@ -1,14 +1,12 @@
 'use strict';
+
+let VERBOSE = false;
+
 if (!browser) {
   throw new Error('Browser API not found');
 }
 
-var PATH_DELIM = '/';
-browser.runtime.getPlatformInfo().then((info) => {
-  if (info.os === 'win') PATH_DELIM = '\\';
-}).catch(console.error);
 const VALID_TAGS = ['IMG','SVG'];
-const VERBOOSE = true;
 const MENUS = ['image_save_button','image_dataurl_button'];
 const JS_PARSEURL = `function parseURL(url) {var u=new URL(url,window.location.href);return u.toString();};`;
 const JS_SAVE = function(action) {
@@ -17,9 +15,7 @@ const JS_SAVE = function(action) {
 const JS_CHECK = `function is_image(node) {return ${JSON.stringify(VALID_TAGS)}.includes(node.tagName.toUpperCase())||getComputedStyle(node).getPropertyValue('background-image').includes('url')};`;
 const JS_CHILDREN = `function image_children(node) {return Array.from(node.children).filter(is_image);};`
 
-var LAST_DOWNLOAD_DIR = '.';
-
-var activeDownloads = new Map();
+let activeDownloads = new Map();
 
 const showMenuItems = function(items, visible) {
   return new Promise((resolve,reject) => {
@@ -29,7 +25,7 @@ const showMenuItems = function(items, visible) {
         {'visible':visible}
       ).then(() => {
         browser.menus.refresh().then(() => {
-          if (VERBOOSE) console.log(`${visible ? 'Show' : 'Hide'} ${id}`);
+          if (VERBOSE) console.log(`${visible ? 'Show' : 'Hide'} ${id}`);
         }).catch(reject);
       }).catch(reject);
     });
@@ -37,50 +33,60 @@ const showMenuItems = function(items, visible) {
   })
 }
 
-const downloadImage = function(message) {
+const downloadImage = async function(message, pageURL) {
   switch(message.target) {
-    case "base64":
-    var blob = new Blob([atob(message.data)],{'type':'image/svg'});
-    var url = URL.createObjectURL(blob);
-    console.log(`${LAST_DOWNLOAD_DIR}${PATH_DELIM}image.svg`);
-    browser.downloads.download({
-      'filename': `${LAST_DOWNLOAD_DIR}${PATH_DELIM}image.svg`,
-      'saveAs': true,
-      'url': url,
-    }).then((id) => {
-      activeDownloads.set(id,url);
-      if (VERBOOSE) console.log(`Started download ${id}`);
-    }).catch(function() {
-      URL.revokeObjectURL(url);
-      console.error.apply(this,arguments);
-    });
-    break;
+    case "base64": {
+      const data = atob(message.data);
+      let svg;
+      try {
+        svg = (await cleanSVG(data, pageURL, VERBOSE)).text;
+      } catch(e) {
+        svg = data;
+      }
+      var blob = new Blob([svg],{'type':'image/svg'});
+      var url = URL.createObjectURL(blob);
+      browser.downloads.download({
+        'filename': 'image.svg',
+        'saveAs': true,
+        'url': url,
+      }).then((id) => {
+        activeDownloads.set(id,url);
+        if (VERBOSE) console.log(`Started download ${id}`);
+      }).catch(function() {
+        URL.revokeObjectURL(url);
+        console.error.apply(this,arguments);
+      });
+      break;
+    }
+
     case "url":
     browser.downloads.download({
       'method': 'GET',
       'saveAs': true,
       'url': message.data,
     }).then((id) => {
-      if (VERBOOSE) console.log(`Started download ${id}`);
+      if (VERBOSE) console.log(`Started download ${id}`);
     }).catch(console.error);
     break;
   }
 }
 
-const dataURLImage = function(message) {
+const dataURLImage = async function(message, pageURL) {
   switch(message.target) {
-    case "base64":
-    let svg;
-    try {
-      svg = cleanSVG(atob(message.data));
-    } catch(e) {
-      console.warn(e);
-      svg = atob(message.data);
+    case "base64": {
+      const data = atob(message.data);
+      if (VERBOSE) console.log('Attempting to clean and dataURL', data);
+      let svg;
+      try {
+        svg = (await cleanSVG(data, pageURL, VERBOSE)).text;
+      } catch(e) {
+        console.warn(e);
+        svg = data;
+      }
+      var url = `data:image/svg+xml;base64,${btoa(svg)}`;
+      previewDataURL(url);
+      break;
     }
-    var url = `data:image/svg+xml;base64,${btoa(svg)}`;
-    previewDataURL(url);
-    console.log(url);
-    break;
     case "url":
     fetch(message.data, {mode:'cors'}).then((res) => {
       console.log(res);
@@ -102,11 +108,12 @@ const dataURLImage = function(message) {
 const previewDataURL = function(url) {
   browser.windows.create({ type: 'panel', url: browser.runtime.getURL('svg_preview.html') }).then((window) => {
     for (let tab of window.tabs) {
+      /* This is jank */
       let message = (tab,url) => {
         if (tab.status === 'complete') {
           browser.tabs.sendMessage(tab.id, {type:'preview-dataurl',data:url}).then(null).catch(function() {
             setTimeout(message, 10, tab, url);
-            if (VERBOOSE) console.warn.apply(null,arguments);
+            if (VERBOSE) console.warn.apply(null,arguments);
           });
         } else {
           setTimeout(message, 10, tab, url);
@@ -118,7 +125,7 @@ const previewDataURL = function(url) {
 }
 
 browser.menus.onClicked.addListener((info,tab) => {
-  if (VERBOOSE) console.log(info);
+  if (VERBOSE) console.log(info);
   let action = info.menuItemId === 'image_dataurl_button' ? 'dataurl' : 'download';
   browser.tabs.executeScript(tab.id,{
     'frameId': info.frameId,
@@ -126,35 +133,32 @@ browser.menus.onClicked.addListener((info,tab) => {
   })
 });
 browser.menus.onShown.addListener((info,tab) => {
-  if (VERBOOSE) console.log(info);
+  if (VERBOSE) console.log(info);
   browser.tabs.executeScript(tab.id,{
     'frameId': info.frameId,
-    'code': `${JS_CHECK}${JS_CHILDREN}var node=browser.menus.getTargetElement(${info.targetElementId});browser.runtime.sendMessage({'type':(!is_image(node)&&image_children(node).length===0)? 'hide':'show','data':${JSON.stringify(MENUS)}});${VERBOOSE ? 'console.log(node.tagName);' : ''}`
+    'code': `${JS_CHECK}${JS_CHILDREN}var node=browser.menus.getTargetElement(${info.targetElementId});browser.runtime.sendMessage({'type':(!is_image(node)&&image_children(node).length===0)? 'hide':'show','data':${JSON.stringify(MENUS)}});${VERBOSE ? 'console.log(node.tagName);' : ''}`
   })
 })
 browser.menus.onHidden.addListener(() => {
   browser.menus.update('image_save_button',{'visible':false});
 })
 browser.runtime.onMessage.addListener((message,sender) => {
-  if (VERBOOSE) console.log(message);
+  if (VERBOSE) console.log(sender, message);
   switch(message.type) {
     case 'hide':
     case 'show':
     showMenuItems(message.data, message.type === 'show');
     break;
     case 'download':
-    downloadImage(message);
+    downloadImage(message, sender.url).then(null, console.error);
     break;
     case 'dataurl':
-    dataURLImage(message);
+    dataURLImage(message, sender.url).then(null, console.error);
     break;
   }
 })
 browser.downloads.onCreated.addListener((downloadItem) => {
-  if (VERBOOSE) console.log(downloadItem);
-  if (downloadItem.filename) {
-    LAST_DOWNLOAD_DIR = downloadItem.filename.split(/[/\\]/).slice(0,-1).join(PATH_DELIM);
-  }
+  if (VERBOSE) console.log(downloadItem);
 })
 browser.downloads.onChanged.addListener((downloadDelta) => {
   if (downloadDelta.state.current === 'complete' || downloadDelta.error.current !== undefined) {
@@ -162,7 +166,7 @@ browser.downloads.onChanged.addListener((downloadDelta) => {
       URL.revokeObjectURL(activeDownloads.get(downloadDelta.id));
       activeDownloads.delete(downloadDelta.id);
     }
-    if (VERBOOSE) console.log(`Finished download ${downloadDelta.id}`);
+    if (VERBOSE) console.log(`Finished download ${downloadDelta.id}`);
   }
 })
 
