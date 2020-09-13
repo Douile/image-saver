@@ -1,0 +1,19 @@
+{
+  "extensionName": {
+    "message": "Image saver"
+  },
+  "extensionDescription": {
+    "message": "Save any images in page directly from context menu, this includes svg elements, css background images and direct child images. Now supports creating dataurls for any image or svg as well."
+  },
+  "menuSaveImage": {
+    "message": "Save image",
+    "description": "Save image button in context menu"
+  },
+  "menuUrlImage": {
+    "message": "Show image dataURL",
+    "description": "Show dataURL button in context menu"
+  },
+  "copied": {
+    "message": "Copied!"
+  }
+}

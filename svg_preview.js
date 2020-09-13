@@ -14,6 +14,6 @@ window.addEventListener('click',(e) => {
     e.preventDefault();
     document.getElementById('input').select();
     document.execCommand('copy');
-    alert('Copied!');
+    alert(browser.i18n.getMessage('copied'));
   }
 })

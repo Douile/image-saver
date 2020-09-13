@@ -175,7 +175,7 @@ browser.downloads.onChanged.addListener((downloadDelta) => {
 browser.menus.create({
   'contexts': ['all'],
   'id': 'image_save_button',
-  'title': 'Save image',
+  'title': browser.i18n.getMessage('menuSaveImage'),
   'type': 'normal',
   'visible': false,
   'enabled': true,
@@ -193,7 +193,7 @@ browser.menus.create({
 browser.menus.create({
   'contexts': ['all'],
   'id': 'image_dataurl_button',
-  'title': 'Create image dataurl',
+  'title': browser.i18n.getMessage('menuUrlImage'),
   'type': 'normal',
   'visible': false,
   'enabled': true,
