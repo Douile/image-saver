@@ -21,7 +21,7 @@ New algorithm for when element <use> is used
 * @param {bool} verbose - Toggle verbose logging
 * @returns {Promise<CleanSVG>} cleaned svg result {@link CleanSVG}
 */
-const cleanSVG = async function(svgText, locationHref, verbose) {
+const cleanSVG = async function(svgText, locationHref, colors, verbose) {
   // Replace deprecated xlink to avoid namespace errors
 	svgText = svgText.replace(/xlink\:href/g, 'href');
 
@@ -39,6 +39,12 @@ const cleanSVG = async function(svgText, locationHref, verbose) {
   if (!svg.hasAttribute('xmlns:cc')) svg.setAttributeNS(NS_XMLNS,'xmlns:cc','http://creativecommons.org/ns#');
   if (!svg.hasAttribute('xmlns:rdf')) svg.setAttributeNS(NS_XMLNS,'xmlns:rdf','http://www.w3.org/1999/02/22-rdf-syntax-ns#');
   if (!svg.hasAttribute('xmlns:svg')) svg.setAttributeNS(NS_XMLNS,'xmlns:svg',NS_SVG);
+  if (colors) {
+    svg.removeAttribute('style');
+    svg.setAttribute('stroke', colors.color);
+    svg.setAttribute('fill', colors.fill);
+  }
+
 	// Expand links
 	for (let use of svg.querySelectorAll('use[href]')) {
     const href = use.getAttribute('href');

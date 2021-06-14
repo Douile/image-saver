@@ -6,42 +6,18 @@ if (!browser) {
   throw new Error('Browser API not found');
 }
 
-const VALID_TAGS = ['IMG','SVG'];
 const MENUS = ['image_save_button','image_dataurl_button'];
-const JS_PARSEURL = `function parseURL(url) {var u=new URL(url,window.location.href);return u.toString();};`;
 // TODO: Match multiple background images
 // TODO: allow choosing between images if multiple are found
-const JS_SAVE = function(action) {
-  return `function save_image(node) {var bg=getComputedStyle(node).getPropertyValue('background-image');var tag=node.tagName.toUpperCase();if(bg.includes('url')) {var url=parseURL(bg.substr(5,bg.length-7));browser.runtime.sendMessage({'type':'${action}','target':'url','data':url})} else if (tag==='SVG') {browser.runtime.sendMessage({'type':'${action}','target':'base64','data':btoa(node.outerHTML)})} else if (tag==='IMG') {var url=parseURL(node.src);browser.runtime.sendMessage({'type':'${action}','target':'url','data':url});} else {return false;};return true;};`
-}
-const JS_CHECK = `function is_image(node) {return ${JSON.stringify(VALID_TAGS)}.includes(node.tagName.toUpperCase())||getComputedStyle(node).getPropertyValue('background-image').includes('url')};`;
-const JS_CHILDREN = `function image_children(node) {return Array.from(node.children).filter(is_image);};`
-
 let activeDownloads = new Map();
 
-const showMenuItems = function(items, visible) {
-  return new Promise((resolve,reject) => {
-    items.forEach((id) => {
-      browser.menus.update(
-        id,
-        {'visible':visible}
-      ).then(() => {
-        browser.menus.refresh().then(() => {
-          if (VERBOSE) console.log(`${visible ? 'Show' : 'Hide'} ${id}`);
-        }).catch(reject);
-      }).catch(reject);
-    });
-    resolve();
-  })
-}
-
 const downloadImage = async function(message, pageURL) {
-  switch(message.target) {
-    case "base64": {
-      const data = atob(message.data);
+  switch(message.t) {
+    case "svg": {
+      const data = atob(message.d);
       let svg;
       try {
-        svg = (await cleanSVG(data, pageURL, VERBOSE)).text;
+        svg = (await cleanSVG(data, pageURL, message.c, VERBOSE)).text;
       } catch(e) {
         svg = data;
       }
@@ -65,7 +41,7 @@ const downloadImage = async function(message, pageURL) {
     browser.downloads.download({
       'method': 'GET',
       'saveAs': true,
-      'url': message.data,
+      'url': message.d,
     }).then((id) => {
       if (VERBOSE) console.log(`Started download ${id}`);
     }).catch(console.error);
@@ -74,13 +50,13 @@ const downloadImage = async function(message, pageURL) {
 }
 
 const dataURLImage = async function(message, pageURL) {
-  switch(message.target) {
-    case "base64": {
-      const data = atob(message.data);
+  switch(message.t) {
+    case "svg": {
+      const data = atob(message.d);
       if (VERBOSE) console.log('Attempting to clean and dataURL', data);
       let svg;
       try {
-        svg = (await cleanSVG(data, pageURL, VERBOSE)).text;
+        svg = (await cleanSVG(data, pageURL, message.c, VERBOSE)).text;
       } catch(e) {
         console.warn(e);
         svg = data;
@@ -90,7 +66,7 @@ const dataURLImage = async function(message, pageURL) {
       break;
     }
     case "url":
-    fetch(message.data, {mode:'cors'}).then((res) => {
+    fetch(message.d, {mode:'cors'}).then((res) => {
       console.log(res);
       res.blob().then((blob) => {
         var reader = new FileReader();
@@ -125,42 +101,57 @@ const previewDataURL = function(url) {
   }).catch(console.error);
 }
 
-browser.menus.onClicked.addListener((info,tab) => {
+let nextMenuInstanceId = 1;
+let lastMenuInstanceId = 0; 
+let lastImageType;
+
+browser.menus.onClicked.addListener(async function(info,tab) {
   if (VERBOSE) console.log(info);
-  let action = info.menuItemId === 'image_dataurl_button' ? 'dataurl' : 'download';
-  browser.tabs.executeScript(tab.id,{
-    'frameId': info.frameId,
-    'code': `${JS_PARSEURL}${JS_SAVE(action)}${JS_CHECK}${JS_CHILDREN}var node=browser.menus.getTargetElement(${info.targetElementId});if (!save_image(node)) {image_children(node).forEach(save_image)};`
-  })
-});
-browser.menus.onShown.addListener((info,tab) => {
-  if (VERBOSE) console.log(info);
-  browser.tabs.executeScript(tab.id,{
-    'frameId': info.frameId,
-    'code': `${JS_CHECK}${JS_CHILDREN}var node=browser.menus.getTargetElement(${info.targetElementId});browser.runtime.sendMessage({'type':(!is_image(node)&&image_children(node).length===0)? 'hide':'show','data':${JSON.stringify(MENUS)}});${VERBOSE ? 'console.log(node.tagName);' : ''}`
-  })
-})
-browser.menus.onHidden.addListener(() => {
-  browser.menus.update('image_save_button',{'visible':false});
-})
-browser.runtime.onMessage.addListener((message,sender) => {
-  if (VERBOSE) console.log(sender, message);
-  switch(message.type) {
-    case 'hide':
-    case 'show':
-    showMenuItems(message.data, message.type === 'show');
-    break;
-    case 'download':
-    downloadImage(message, sender.url).then(null, console.error);
-    break;
-    case 'dataurl':
-    dataURLImage(message, sender.url).then(null, console.error);
-    break;
+  const action = info.menuItemId === 'image_dataurl_button' ? 'dataurl' : 'download';
+
+  const res = await browser.tabs.sendMessage(tab.id, {
+    r: 'save',
+    i: info.targetElementId,
+    t: lastImageType,
+  });
+
+  console.log('Save image', res);
+  switch(info.menuItemId) {
+    case 'image_dataurl_button':
+      await dataURLImage (res, tab.url);
+      break;
+    case 'image_save_button':
+      await downloadImage(res, tab.url);
+      break;
   }
+});
+
+browser.menus.onShown.addListener(async function(info,tab) {
+  let menuInstanceId = nextMenuInstanceId++;
+  lastMenuInstanceId = menuInstanceId;
+
+  lastImageType = await browser.tabs.sendMessage(tab.id, {
+    r: 'check',
+    i: info.targetElementId,
+  });
+  const is_image = lastImageType !== null;
+  if (VERBOSE) console.log(info, lastImageType, is_image);
+
+  if (menuInstanceId !== lastMenuInstanceId) return console.warn('Menu closed and re-opened during check');
+
+  await Promise.all(MENUS.map(item => browser.menus.update(item, { visible: is_image })));
+  await browser.menus.refresh();
+  if (VERBOSE) console.log('Menu update completed...');
 })
+
+browser.menus.onHidden.addListener(async function() {
+  await Promise.all(MENUS.map(item => brow.sermenus.update(item, { visible: false })));
+})
+
 browser.downloads.onCreated.addListener((downloadItem) => {
   if (VERBOSE) console.log(downloadItem);
 })
+
 browser.downloads.onChanged.addListener((downloadDelta) => {
   if (downloadDelta.state.current === 'complete' || downloadDelta.error.current !== undefined) {
     if (activeDownloads.has(downloadDelta.id)) {
