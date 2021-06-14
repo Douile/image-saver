@@ -7,6 +7,7 @@ browser.runtime.onMessage.addListener((message,sender) => {
     a.href = message.data;
     a.innerText = message.data;
     input.value = message.data;
+    img.scrollIntoView({block: 'center'});
   }
 })
 window.addEventListener('click',(e) => {
