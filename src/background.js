@@ -83,7 +83,7 @@ const dataURLImage = async function(message, pageURL) {
 }
 
 const previewDataURL = function(url) {
-  browser.windows.create({ type: 'panel', url: browser.runtime.getURL('svg_preview.html') }).then((window) => {
+  browser.windows.create({ type: 'panel', url: browser.runtime.getURL('preview/svg_preview.html') }).then((window) => {
     for (let tab of window.tabs) {
       /* This is jank */
       let message = (tab,url) => {
